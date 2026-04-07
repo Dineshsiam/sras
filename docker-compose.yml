@@ -1,0 +1,52 @@
+version: '3.9'
+
+services:
+  # ─── Spring Boot Backend ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sars-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=${DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - APP_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+      - APP_REPORTS_STORAGE_PATH=/app/reports
+    volumes:
+      - reports_data:/app/reports
+    networks:
+      - sars-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ─── React Frontend (Nginx) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sars-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sars-network
+    restart: unless-stopped
+
+volumes:
+  reports_data:
+    driver: local
+
+networks:
+  sars-network:
+    driver: bridge
